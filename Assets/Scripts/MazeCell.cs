@@ -19,12 +19,16 @@ public class MazeCell : MonoBehaviour
     [SerializeField]
     private GameObject _unvisitedCell;
 
+    [SerializeField]
+    private GameObject _visitedCell;
+
     public bool IsVisited { get; private set; }
 
     public void Visit()
     {
         IsVisited = true;
         _unvisitedCell.SetActive(false);
+        _visitedCell.SetActive(true);
     }
 
     public void SetWall(int direction, bool state)
