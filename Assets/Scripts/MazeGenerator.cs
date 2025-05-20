@@ -5,151 +5,135 @@ using UnityEngine;
 
 public class MazeGenerator : MonoBehaviour
 {
-    [SerializeField]
-    private MazeCell _mazeCellPrefab;
+    [Header("Prefabs & References")]
+    [SerializeField] private MazeCell _cellPrefab;
+    [SerializeField] private Transform _mazeParent;
 
-    [SerializeField]
-    private int _mazeWidth;
-
-    [SerializeField]
-    private int _mazeHeigth;
+    [Header("Maze Settings")]
+    [SerializeField, Range(10, 250)] private int _width = 10;
+    [SerializeField, Range(10, 250)] private int _height = 10;
+    [SerializeField, Min(0f)] private float _cellSpacing = 1f;
+    [SerializeField, Min(0f)] private float _generationDelay = 0f;
 
     private MazeCell[,] _mazeGrid;
 
-    IEnumerator Start()
+    // Exposed properties for UI
+    public int Width { get => _width; set => _width = Mathf.Clamp(value, 10, 250); }
+    public int Height { get => _height; set => _height = Mathf.Clamp(value, 10, 250); }
+    public float GenerationDelay { get => _generationDelay; set => _generationDelay = Mathf.Max(0f, value); }
+
+
+    /// <summary>
+    /// Public method to (re)generate the maze.
+    /// </summary>
+    public void GenerateMaze()
     {
-        _mazeGrid = new MazeCell[_mazeWidth, _mazeHeigth];
-
-        for (int x = 0; x < _mazeWidth; x++)
-        {
-            for (int z = 0; z < _mazeHeigth; z++)
-            {
-                _mazeGrid[x, z] = Instantiate(_mazeCellPrefab, new Vector3(x, 0, z), Quaternion.identity);
-            }
-        }
-
-        var startCell = _mazeGrid[Random.Range(0, _mazeWidth), Random.Range(0, _mazeHeigth)];
-
-        yield return GenerateMaze(null, startCell);
+        StopAllCoroutines();
+        ClearMaze();
+        StartCoroutine(PerformGeneration());
     }
 
     /// <summary>
-    /// Generates the maze using a recursive backtracking algorithm.
+    /// Clears existing maze cells.
     /// </summary>
-    private IEnumerator GenerateMaze(MazeCell previousCell, MazeCell currentCell)
+    private void ClearMaze()
     {
-        currentCell.Visit(); // Mark the current cell as visited
-        ClearWalls(previousCell, currentCell);
-
-        yield return new WaitForSeconds(0.5f); 
-        
-        MazeCell nextCell;
-
-        do
-        {
-            nextCell = GetNextUnvisitedCell(currentCell);
-
-            if (nextCell != null)
-            {
-                yield return GenerateMaze(currentCell, nextCell);
-            }
-        } while (nextCell != null);
-    }
-
-   
-    private MazeCell GetNextUnvisitedCell(MazeCell currentCell)
-    {
-        var unvisitedCells = GetUnvisitedCells(currentCell);
-
-        return unvisitedCells.OrderBy(_ => Random.Range(1, 10)).FirstOrDefault();
+        if (_mazeParent == null) return;
+        foreach (Transform child in _mazeParent)
+            Destroy(child.gameObject);
     }
 
     /// <summary>
-    /// Checks if there are any unvisited cells adjacent to the current cell.
+    /// Coroutine performing a randomized DFS (backtracking) maze generation.
     /// </summary>
-    private IEnumerable<MazeCell> GetUnvisitedCells(MazeCell currentCell)
+    private IEnumerator PerformGeneration()
     {
-        int x = (int)currentCell.transform.position.x;
-        int z = (int)currentCell.transform.position.z;
-
-        if (x + 1 < _mazeWidth)
+        _mazeGrid = new MazeCell[_width, _height];
+        // 1. Instantiate grid of cells
+        for (int x = 0; x < _width; x++)
         {
-            var cellToRight = _mazeGrid[x + 1, z];
-            
-            if (cellToRight.IsVisited == false)
+            for (int y = 0; y < _height; y++)
             {
-                yield return cellToRight;
+                var cell = Instantiate(_cellPrefab, _mazeParent);
+                cell.Initialize(x, y);
+                cell.transform.localPosition = new Vector3(x * _cellSpacing, 0, y * _cellSpacing);
+                _mazeGrid[x, y] = cell;
             }
+            // Yield per row to keep UI responsive
+            yield return null;
         }
 
-        if (x - 1 >= 0)
+        // 2. Depth-first search with stack
+        var stack = new Stack<MazeCell>();
+        var start = _mazeGrid[0, 0];
+        start.Visit();
+        stack.Push(start);
+
+        while (stack.Count > 0)
         {
-            var cellToLeft = _mazeGrid[x - 1, z];
-
-            if (cellToLeft.IsVisited == false)
+            var current = stack.Peek();
+            var neighbors = GetUnvisitedNeighbors(current);
+            if (neighbors.Count > 0)
             {
-                yield return cellToLeft;
+                var next = neighbors[Random.Range(0, neighbors.Count)];
+                RemoveWallBetween(current, next);
+                next.Visit();
+                stack.Push(next);
             }
-        }
-
-        if (z + 1 < _mazeHeigth)
-        {
-            var cellToFront = _mazeGrid[x, z + 1];
-
-            if (cellToFront.IsVisited == false)
+            else
             {
-                yield return cellToFront;
+                stack.Pop();
             }
-        }
 
-        if (z - 1 >= 0)
-        {
-            var cellToBack = _mazeGrid[x, z - 1];
-
-            if (cellToBack.IsVisited == false)
-            {
-                yield return cellToBack;
-            }
+            if (_generationDelay > 0f)
+                yield return new WaitForSeconds(_generationDelay);
+            else
+                yield return null;
         }
     }
 
     /// <summary>
-    /// Removes the walls between the previous cell and the current cell.
+    /// Returns a list of unvisited neighboring cells.
     /// </summary>
-    private void ClearWalls(MazeCell previousCell, MazeCell currentCell)
+    private List<MazeCell> GetUnvisitedNeighbors(MazeCell cell)
     {
-        if (previousCell == null)
-        {
-            return;
-        }
-
-        if (previousCell.transform.position.x < currentCell.transform.position.x)
-        {
-            previousCell.SetWall(1, false); // East
-            currentCell.SetWall(3, false); // West
-            return;
-        }
-
-        if (previousCell.transform.position.x > currentCell.transform.position.x)
-        {
-            previousCell.SetWall(3, false); // West
-            currentCell.SetWall(1, false); // East
-            return;
-        }
-
-        if (previousCell.transform.position.z < currentCell.transform.position.z)
-        {
-            previousCell.SetWall(0, false); // North
-            currentCell.SetWall(2, false); // South
-            return;
-        }
-
-        if (previousCell.transform.position.z > currentCell.transform.position.z)
-        {
-            previousCell.SetWall(2, false); // South
-            currentCell.SetWall(0, false); // North
-            return;
-        }
+        var list = new List<MazeCell>();
+        int x = cell.Coordinates.x;
+        int y = cell.Coordinates.y;
+        if (y < _height - 1 && !_mazeGrid[x, y + 1].IsVisited) list.Add(_mazeGrid[x, y + 1]);
+        if (x < _width - 1 && !_mazeGrid[x + 1, y].IsVisited) list.Add(_mazeGrid[x + 1, y]);
+        if (y > 0 && !_mazeGrid[x, y - 1].IsVisited) list.Add(_mazeGrid[x, y - 1]);
+        if (x > 0 && !_mazeGrid[x - 1, y].IsVisited) list.Add(_mazeGrid[x - 1, y]);
+        return list;
     }
 
+
+    /// <summary>
+    /// Disables walls between two adjacent cells.
+    /// </summary>
+    private void RemoveWallBetween(MazeCell a, MazeCell b)
+    {
+        int dx = b.Coordinates.x - a.Coordinates.x;
+        int dy = b.Coordinates.y - a.Coordinates.y;
+        if (dx == 1)
+        {
+            a.SetWall(Direction.East, false);
+            b.SetWall(Direction.West, false);
+        }
+        else if (dx == -1)
+        {
+            a.SetWall(Direction.West, false);
+            b.SetWall(Direction.East, false);
+        }
+        else if (dy == 1)
+        {
+            a.SetWall(Direction.North, false);
+            b.SetWall(Direction.South, false);
+        }
+        else if (dy == -1)
+        {
+            a.SetWall(Direction.South, false);
+            b.SetWall(Direction.North, false);
+        }
+    }
 }

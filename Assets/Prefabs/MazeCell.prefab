@@ -5175,10 +5175,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7ca6b02ef99bb57439cde8b1f2ec0cfa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _wallN: {fileID: 8293097428209948516}
-  _wallE: {fileID: 72854468345561085}
-  _wallS: {fileID: 4964484049266874967}
-  _wallW: {fileID: 6304038840308010369}
+  _wallNorth: {fileID: 8293097428209948516}
+  _wallEast: {fileID: 72854468345561085}
+  _wallSouth: {fileID: 4964484049266874967}
+  _wallWest: {fileID: 6304038840308010369}
   _unvisitedCell: {fileID: 6454549843713152764}
   _visitedCell: {fileID: 1936053204529191977}
 --- !u!1 &8293097428209948516

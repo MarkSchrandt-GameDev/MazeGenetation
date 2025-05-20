@@ -1,29 +1,38 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+
+public enum Direction { North, East, South, West }
+
 
 public class MazeCell : MonoBehaviour
 {
-    [SerializeField]
-    private GameObject _wallN;
+    [Header("Wall Objects")]
+    [SerializeField] private GameObject _wallNorth;
+    [SerializeField] private GameObject _wallEast;
+    [SerializeField] private GameObject _wallSouth;
+    [SerializeField] private GameObject _wallWest;
 
-    [SerializeField]
-    private GameObject _wallE;
+    [Header("Cell State")]
+    [SerializeField] private GameObject _unvisitedCell;
+    [SerializeField] private GameObject _visitedCell;
 
-    [SerializeField]
-    private GameObject _wallS;
-
-    [SerializeField]
-    private GameObject _wallW;
-
-    [SerializeField]
-    private GameObject _unvisitedCell;
-
-    [SerializeField]
-    private GameObject _visitedCell;
-
+    public Vector2Int Coordinates { get; private set; }
     public bool IsVisited { get; private set; }
 
+
+    /// <summary>
+    /// Initializes the cell with grid coordinates and default state.
+    /// </summary>
+    public void Initialize(int x, int y)
+    {
+        Coordinates = new Vector2Int(x, y);
+        IsVisited = false;
+        _unvisitedCell.SetActive(true);
+        _visitedCell.SetActive(false);
+    }
+
+    /// <summary>
+    /// Marks this cell as visited and updates its visual state.
+    /// </summary>
     public void Visit()
     {
         IsVisited = true;
@@ -31,25 +40,17 @@ public class MazeCell : MonoBehaviour
         _visitedCell.SetActive(true);
     }
 
-    public void SetWall(int direction, bool state)
+    /// <summary>
+    /// Enables or disables the wall in the given direction.
+    /// </summary>
+    public void SetWall(Direction dir, bool state)
     {
-        switch (direction)
+        switch (dir)
         {
-            case 0:
-                _wallN.SetActive(state);
-                break;
-            case 1:
-                _wallE.SetActive(state);
-                break;
-            case 2:
-                _wallS.SetActive(state);
-                break;
-            case 3:
-                _wallW.SetActive(state);
-                break;
-            default:
-                Debug.LogError("Invalid wall direction");
-                break;
+            case Direction.North: _wallNorth?.SetActive(state); break;
+            case Direction.East: _wallEast?.SetActive(state); break;
+            case Direction.South: _wallSouth?.SetActive(state); break;
+            case Direction.West: _wallWest?.SetActive(state); break;
         }
     }
 }
