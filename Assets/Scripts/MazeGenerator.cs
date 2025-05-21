@@ -4,8 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+public enum MazeAlgorithm { RecursiveDFS, Prims }
+
 public class MazeGenerator : MonoBehaviour
 {
+    public event Action onMazeGenerated;
+
     [Header("Prefabs & References")]
     [SerializeField] private MazeCell _cellPrefab;
     [SerializeField] private MazeCell _simpleCellPrefab;
@@ -17,8 +21,7 @@ public class MazeGenerator : MonoBehaviour
     [SerializeField, Range(10, 250)] private int _height = 10;
     [SerializeField, Min(0f)] private float _cellSpacing = 1f;
     [SerializeField, Min(0f)] private float _generationDelay = 0f;
-
-    public event Action onMazeGenerated;
+    [SerializeField] private MazeAlgorithm algorithm = MazeAlgorithm.RecursiveDFS;
 
     private MazeCell[,] _mazeGrid;
 
@@ -27,6 +30,7 @@ public class MazeGenerator : MonoBehaviour
     public int Height { get => _height; set => _height = Mathf.Clamp(value, 10, 250); }
     public float CellSpacing { get => _cellSpacing; set => _cellSpacing = Mathf.Max(0f, value); }
     public float GenerationDelay { get => _generationDelay; set => _generationDelay = Mathf.Max(0f, value); }
+    public MazeAlgorithm Algorithm { get => algorithm; set => algorithm = value; }
 
 
     /// <summary>
@@ -73,13 +77,25 @@ public class MazeGenerator : MonoBehaviour
             yield return null;
         }
 
-        onMazeGenerated?.Invoke();
+        onMazeGenerated?.Invoke(); // for centering camera
 
-        // 2. Depth-first search with stack
+        // Choose algorithm
+        switch (algorithm)
+        {
+            case MazeAlgorithm.RecursiveDFS:
+                yield return StartCoroutine(GenerateWithDFS());
+                break;
+            case MazeAlgorithm.Prims:
+                yield return StartCoroutine(GenerateWithPrims());
+                break;
+        }
+    }
+
+    private IEnumerator GenerateWithDFS()
+    {
         var stack = new Stack<MazeCell>();
         var start = _mazeGrid[0, 0];
-        start.Visit();
-        stack.Push(start);
+        start.Visit(); stack.Push(start);
 
         while (stack.Count > 0)
         {
@@ -89,16 +105,37 @@ public class MazeGenerator : MonoBehaviour
             {
                 var next = neighbors[UnityEngine.Random.Range(0, neighbors.Count)];
                 RemoveWallBetween(current, next);
-                next.Visit();
-                stack.Push(next);
+                next.Visit(); stack.Push(next);
             }
-            else
-            {
-                stack.Pop();
-            }
+            else stack.Pop();
 
-            yield return new WaitForSeconds(_generationDelay);
-           
+            if (_generationDelay > 0f) yield return new WaitForSeconds(_generationDelay);
+            else yield return null;
+        }
+    }
+
+    private IEnumerator GenerateWithPrims()
+    {
+        var frontier = new List<MazeCell>();
+        var start = _mazeGrid[UnityEngine.Random.Range(0, _height), UnityEngine.Random.Range(0, _width)];
+        start.Visit();
+        frontier.AddRange(GetUnvisitedNeighbors(start));
+
+        while (frontier.Count > 0)
+        {
+            var idx = UnityEngine.Random.Range(0, frontier.Count);
+            var cell = frontier[idx];
+            var visitedNeighbors = GetVisitedNeighbors(cell);
+            var neighbor = visitedNeighbors[UnityEngine.Random.Range(0, visitedNeighbors.Count)];
+
+            RemoveWallBetween(cell, neighbor);
+            cell.Visit();
+            frontier.Remove(cell);
+            foreach (var n in GetUnvisitedNeighbors(cell))
+                if (!frontier.Contains(n)) frontier.Add(n);
+
+            if (_generationDelay > 0f) yield return new WaitForSeconds(_generationDelay);
+            else yield return null;
         }
     }
 
@@ -117,6 +154,19 @@ public class MazeGenerator : MonoBehaviour
         return list;
     }
 
+    /// <summary>
+    /// Returns a list of visited neighboring cells.
+    /// </summary>
+    private List<MazeCell> GetVisitedNeighbors(MazeCell cell)
+    {
+        var list = new List<MazeCell>();
+        int x = cell.Coordinates.x, y = cell.Coordinates.y;
+        if (y < _height - 1 && _mazeGrid[x, y + 1].IsVisited) list.Add(_mazeGrid[x, y + 1]);
+        if (x < _width - 1 && _mazeGrid[x + 1, y].IsVisited) list.Add(_mazeGrid[x + 1, y]);
+        if (y > 0 && _mazeGrid[x, y - 1].IsVisited) list.Add(_mazeGrid[x, y - 1]);
+        if (x > 0 && _mazeGrid[x - 1, y].IsVisited) list.Add(_mazeGrid[x - 1, y]);
+        return list;
+    }
 
     /// <summary>
     /// Disables walls between two adjacent cells.
