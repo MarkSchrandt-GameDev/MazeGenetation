@@ -8,8 +8,6 @@ public enum MazeAlgorithm { RecursiveDFS, Prims }
 
 public class MazeGenerator : MonoBehaviour
 {
-    public event Action onMazeGenerated;
-
     [Header("Prefabs & References")]
     [SerializeField] private MazeCell _cellPrefab;
     [SerializeField] private MazeCell _simpleCellPrefab;
@@ -24,6 +22,8 @@ public class MazeGenerator : MonoBehaviour
     [SerializeField] private MazeAlgorithm algorithm = MazeAlgorithm.RecursiveDFS;
 
     private MazeCell[,] _mazeGrid;
+
+    public event Action onMazeGenerated;
 
     // Exposed properties for UI
     public int Width { get => _width; set => _width = Mathf.Clamp(value, 10, 250); }
@@ -54,8 +54,8 @@ public class MazeGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Coroutine performing a randomized DFS (backtracking) maze generation.
-    /// </summary>
+    /// Performs the maze generation using the selected algorithm.
+    /// /// </summary>
     private IEnumerator PerformGeneration()
     {
         // Use the simple cell prefab for large mazes to optimize performance
@@ -91,6 +91,9 @@ public class MazeGenerator : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Generates the maze using Recursive DFS algorithm.
+    /// 
     private IEnumerator GenerateWithDFS()
     {
         var stack = new Stack<MazeCell>();
@@ -114,6 +117,9 @@ public class MazeGenerator : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Generates the maze using Prim's algorithm.
+    /// </summary>
     private IEnumerator GenerateWithPrims()
     {
         var frontier = new List<MazeCell>();

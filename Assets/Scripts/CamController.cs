@@ -23,6 +23,9 @@ public class MazeCameraController : MonoBehaviour
         generator.onMazeGenerated -= AdjustCamera;
     }
 
+    // <summary>
+    // Adjusts the camera position and orthographic size based on the maze dimensions.
+    // </summary>
     public void AdjustCamera()
     {
         int w = generator.Width;
